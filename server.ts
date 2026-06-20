@@ -1,10 +1,10 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import http from "http";
 import { WebSocketServer } from "ws";
 
+// Fix __dirname cho cả ESM lẫn CJS build
 const __dirname = process.cwd();
 
 // Import constants
@@ -12,7 +12,7 @@ import { SYSTEM_INSTRUCTIONS } from "./constants";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = parseInt(process.env.PORT || "3000", 10);
 
   const server = http.createServer(app);
   const wss = new WebSocketServer({ noServer: true });
@@ -35,7 +35,6 @@ async function startServer() {
 
       const ai = new GoogleGenAI({ apiKey });
 
-      // Determine system instruction based on the mode (TutorMode)
       let systemInstruction = "";
       if (mode === "conversation" || mode === "CONVERSATION") {
         systemInstruction = SYSTEM_INSTRUCTIONS.CONVERSATION;
@@ -53,7 +52,7 @@ Always respond in English to keep the user immersed. Be a supportive mentor.`;
 
       systemInstruction += "\nIMPORTANT: Be highly responsive. Do not repeat greeting prompts when interrupted. Keep outputs conversational and natural.";
 
-      console.log(`Socket connection upgrade request success: connecting to Gemini Live API with mode: ${mode}`);
+      console.log(`WebSocket connected: mode=${mode}`);
 
       const session = await ai.live.connect({
         model: "gemini-2.5-flash-native-audio-preview-12-2025",
@@ -68,7 +67,7 @@ Always respond in English to keep the user immersed. Be a supportive mentor.`;
         },
         callbacks: {
           onmessage: (message) => {
-            if (clientWs.readyState === 1) { // OPEN
+            if (clientWs.readyState === 1) {
               clientWs.send(JSON.stringify({ type: "message", message }));
             }
           },
@@ -99,9 +98,7 @@ Always respond in English to keep the user immersed. Be a supportive mentor.`;
               });
             }
           } else if (parsed.clientContent) {
-            session.send({
-              clientContent: parsed.clientContent
-            });
+            session.send({ clientContent: parsed.clientContent });
           }
         } catch (err: any) {
           console.error("Error processing client ws message:", err);
@@ -109,16 +106,12 @@ Always respond in English to keep the user immersed. Be a supportive mentor.`;
       });
 
       clientWs.on("close", () => {
-        console.log("Client connection closed. Closing Gemini live session...");
-        try {
-          session.close();
-        } catch (e) {
-          // ignore already closed
-        }
+        console.log("Client disconnected. Closing Gemini session...");
+        try { session.close(); } catch (e) {}
       });
 
     } catch (err: any) {
-      console.error("Live WebSocket bridge connection failed:", err);
+      console.error("WebSocket bridge failed:", err);
       try {
         if (clientWs.readyState === 1) {
           clientWs.send(JSON.stringify({ type: "error", error: err.message || String(err) }));
@@ -142,38 +135,34 @@ Always respond in English to keep the user immersed. Be a supportive mentor.`;
 
   app.use(express.json());
 
-  // Log requests
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.url}`);
     next();
   });
 
-  // Health endpoint
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
 
-  // Config endpoint to exchange the API Key for current run execution inside the sandbox
   app.get("/api/config", (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
     res.json({ apiKey });
   });
 
-  // Chat endpoint proxy
   app.post("/api/chat", async (req, res) => {
     const { prompt, mode, history, currentDay, dayGoal } = req.body;
     const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
-    
+
     if (!apiKey) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured." });
     }
 
     const ai = new GoogleGenAI({ apiKey });
 
     let systemInstruction = "";
-    if (mode === "conversation") {
+    if (mode === "conversation" || mode === "CONVERSATION") {
       systemInstruction = SYSTEM_INSTRUCTIONS.CONVERSATION;
-    } else if (mode === "ielts") {
+    } else if (mode === "ielts" || mode === "IELTS") {
       systemInstruction = SYSTEM_INSTRUCTIONS.IELTS;
     } else {
       systemInstruction = `${SYSTEM_INSTRUCTIONS.TUTOR_30_DAYS}\n\nROADMAP DAY ${currentDay}. GOAL: ${dayGoal}.`;
@@ -190,10 +179,7 @@ Always respond in English to keep the user immersed. Be a supportive mentor.`;
       parts: [{ text: msg.content }]
     }));
 
-    contents.push({
-      role: "user",
-      parts: [{ text: prompt }]
-    });
+    contents.push({ role: "user", parts: [{ text: prompt }] });
 
     try {
       const response = await ai.models.generateContent({
@@ -207,30 +193,23 @@ Always respond in English to keep the user immersed. Be a supportive mentor.`;
 
       res.json({ text: response.text || "" });
     } catch (error: any) {
-      console.error("Gemini server-side API Error:", error);
+      console.error("Gemini API Error:", error);
       res.status(500).json({ error: error.message || "Failed to generate response" });
     }
   });
 
-  // Summary endpoint proxy
   app.post("/api/summary", async (req, res) => {
     const { history } = req.body;
     const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
-    
+
     if (!apiKey) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured." });
     }
 
     const ai = new GoogleGenAI({ apiKey });
 
     if (!history || history.length === 0) {
-      return res.json({
-        topics: [],
-        vocabulary: [],
-        corrections: [],
-        strengths: [],
-        weaknesses: []
-      });
+      return res.json({ topics: [], vocabulary: [], corrections: [], strengths: [], weaknesses: [] });
     }
 
     const cleanHistory = history.map((msg: any) => `${msg.role === "user" ? "Learner" : "Aura"}: ${msg.content}`).join("\n");
@@ -263,10 +242,7 @@ LƯU Ý QUAN TRỌNG: Chỉ phản hồi mã JSON hợp lệ khớp với cấu 
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              topics: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
-              },
+              topics: { type: Type.ARRAY, items: { type: Type.STRING } },
               vocabulary: {
                 type: Type.ARRAY,
                 items: {
@@ -291,14 +267,8 @@ LƯU Ý QUAN TRỌNG: Chỉ phản hồi mã JSON hợp lệ khớp với cấu 
                   required: ["mistake", "correction", "explanation"]
                 }
               },
-              strengths: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
-              },
-              weaknesses: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
-              }
+              strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+              weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } }
             },
             required: ["topics", "vocabulary", "corrections", "strengths", "weaknesses"]
           }
@@ -308,24 +278,28 @@ LƯU Ý QUAN TRỌNG: Chỉ phản hồi mã JSON hợp lệ khớp với cấu 
       const text = response.text || "{}";
       res.json(JSON.parse(text));
     } catch (error: any) {
-      console.error("Error generating session summary on server:", error);
+      console.error("Summary API Error:", error);
       res.status(500).json({ error: error.message || "Failed to generate summary" });
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  // Production: serve static files
+  const distPath = path.join(__dirname, "dist");
+
+  if (process.env.NODE_ENV === "production") {
+    app.use(express.static(distPath));
+    // Fix Express 5: dùng /{*path} thay vì *
+    app.get("/{*path}", (req: any, res: any) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  } else {
+    // Development: dùng Vite middleware
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("/{*path}", (req, res) => {
-  res.sendFile(path.join(distPath, "index.html"));
-});
   }
 
   server.listen(PORT, "0.0.0.0", () => {
