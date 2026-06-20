@@ -1,0 +1,17 @@
+
+{
+  "short_name": "AuraAI",
+  "name": "AuraAI - English Tutor",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/6024/6024441.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#db2777",
+  "background_color": "#fdf2f8"
+}

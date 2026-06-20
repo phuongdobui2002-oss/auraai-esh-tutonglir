@@ -1,0 +1,10 @@
+{
+  "name": "Remix: AuraAI - English Tutor",
+  "description": "An advanced AI-powered English tutor with multi-session chat history, dynamic learning notebooks (grammar corrections, vocabulary logs), Casual/IELTS modes, and voice feedback.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
