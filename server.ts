@@ -199,7 +199,7 @@ Always respond in English to keep the user immersed. Be a supportive mentor.`;
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: contents,
         config: {
           systemInstruction: systemInstruction,
@@ -258,7 +258,7 @@ LƯU Ý QUAN TRỌNG: Chỉ phản hồi mã JSON hợp lệ khớp với cấu 
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
