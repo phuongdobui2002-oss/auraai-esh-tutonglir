@@ -1,17 +1,11 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import http from "http";
 import { WebSocketServer } from "ws";
 
-const __filename = typeof __filename !== 'undefined' 
-  ? __filename 
-  : fileURLToPath(import.meta.url);
-const __dirname = typeof __dirname !== 'undefined'
-  ? __dirname
-  : path.dirname(__filename);
+const __dirname = process.cwd();
 
 // Import constants
 import { SYSTEM_INSTRUCTIONS } from "./constants";
