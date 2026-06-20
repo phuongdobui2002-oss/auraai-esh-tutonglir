@@ -6,8 +6,12 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import http from "http";
 import { WebSocketServer } from "ws";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = typeof __filename !== 'undefined' 
+  ? __filename 
+  : fileURLToPath(import.meta.url);
+const __dirname = typeof __dirname !== 'undefined'
+  ? __dirname
+  : path.dirname(__filename);
 
 // Import constants
 import { SYSTEM_INSTRUCTIONS } from "./constants";
